@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Q&A Generator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles2.css') }}">
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</head>
+<body>
+    <!-- Navbar -->
+    <header>
+        <div class="navbar">
+            <h1>PDF Q&A Generator</h1>
+            <div class="nav-links">
+                <a href="#">Home</a>
+                <a href="#">Profile</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Section -->
+    <div class="container">
+        <h2>Upload Your PDF</h2>
+        <p>Select a PDF file from your device to generate questions and answers.</p>
+
+        <!-- File Upload Section -->
+        <form action="/upload_pdf" method="post" enctype="multipart/form-data" id="pdfForm">
+            <input type="file" name="pdf" id="pdf" accept="application/pdf" required>
+            <input type="hidden" name="quiz_type" id="quiz_type">
+            <button type="submit">Submit</button>
+        </form>
+
+        <!-- Quiz Type Selection Section -->
+        <div class="quiz-type-section" id="quizOptions" style="display: none;">
+            <h3>What would you like to attempt?</h3>
+            <button type="button" onclick="setQuizType('mcq')">MCQs</button>
+            <button type="button" onclick="setQuizType('fill_in_the_blank')">Fill in the Blanks</button>
+            <button type="button" onclick="setQuizType('subjective')">Subjective Questions</button>
+        </div>
+
+        <p id="fileName"></p>
+    </div>
+
+    <script>
+        document.getElementById("pdfForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+            const fileInput = document.getElementById("pdf");
+            if (fileInput.files.length > 0) {
+                document.getElementById("quizOptions").style.display = "block";
+            } else {
+                alert("Please select a PDF file first.");
+            }
+        });
+
+        function setQuizType(type) {
+            document.getElementById("quiz_type").value = type;
+            document.getElementById("pdfForm").submit();  // Submits the form with quiz type
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Select Quiz Type</title>
+</head>
+<body>
+    <h2>Select Quiz Type</h2>
+    <form action="/upload_pdf" method="POST" enctype="multipart/form-data">
+        <label for="pdf">Upload PDF:</label>
+        <input type="file" name="pdf" required><br><br>
+
+        <label>Select Quiz Type:</label><br>
+        <input type="radio" name="quiz_type" value="mcqs" required> MCQs<br>
+        <input type="radio" name="quiz_type" value="fillups" required> Fill in the Blanks<br>
+        <input type="radio" name="quiz_type" value="subjective" required> Subjective<br><br>
+
+        <input type="submit" value="Submit">
+    </form>
+</body>
+</html>

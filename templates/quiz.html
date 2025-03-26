@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generated Quiz</title>
+</head>
+<body>
+    <h2>Generated Quiz</h2>
+    
+    {% if questions %}
+        <form action="/submit_quiz" method="post">
+            {% for question in questions %}
+                <p><strong>{{ loop.index }}. {{ question }}</strong></p>
+                <textarea name="answer_{{ loop.index }}" rows="3" cols="50"></textarea><br>
+            {% endfor %}
+            <button type="submit">Submit Answers</button>
+        </form>
+    {% else %}
+        <p>No questions generated.</p>
+    {% endif %}
+
+    <br>
+    <a href="/">Go Back</a>
+</body>
+</html>

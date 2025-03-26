@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Results</title>
+</head>
+<body>
+    <h2>Your Submitted Answers</h2>
+
+    {% for answer in answers %}
+        <p>{{ loop.index }}. {{ answer }}</p>
+    {% endfor %}
+
+    <br>
+    <a href="/">Back to Home</a>
+</body>
+</html>

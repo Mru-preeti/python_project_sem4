@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In Page</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+<main>
+    <div class="container">
+        <div class="form-box">
+            <h2>Sign In</h2>
+            <p class="subtext">Welcome!</p>
+            <form  method="post" action="/add_user" onsubmit="return validatePassword()">
+                <input type="text" name="username" placeholder="Username" required>
+                <input type="email" name="email_id" placeholder="Email" required>
+                <input type="password" name="password" id="password" placeholder="Password" required>
+                <input type="password" name="confirmPassword" placeholder="Verify Password" required>
+                <p id="error-message" class="error"></p>
+                <button type="submit" class="btn">Sign In</button>
+            </form>
+            <p class="login-text">Already have an account? <a href="/">Log In</a></p>
+        </div>
+    </div>
+<script src="{{ url_for('static', filename='abcscript.js') }}"></script>
+    </main>
+</body>
+</html>
+
