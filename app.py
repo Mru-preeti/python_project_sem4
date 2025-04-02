@@ -126,8 +126,6 @@ def submit_quiz():
     for key in request.form:
         answers.append(request.form[key])  # Collect all submitted answers
 
-    # Example logic to display answers (can be modified to evaluate scores)
-    return render_template('result.html', answers=answers)
 
 if __name__ == '__main__':
     app.run(debug=True)
