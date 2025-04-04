@@ -4,16 +4,36 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Generated Quiz</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='quiz.css') }}">
+    <script src="{{ url_for('static', filename='quiz.js') }}"></script>
 </head>
 <body>
     <h2>Generated Quiz</h2>
-    
+
     {% if questions %}
         <form action="/submit_quiz" method="post">
             {% for question in questions %}
-                <p><strong>{{ loop.index }}. {{ question }}</strong></p>
-                <textarea name="answer_{{ loop.index }}" rows="3" cols="50"></textarea><br>
+                {% set q_index = loop.index %}
+                <div class="radio-input">
+                    <div class="info">
+                        <span class="question">{{ q_index }}. {{ question.text }}</span>
+                        <span class="steps">{{ q_index }}/{{ questions|length }}</span>
+                    </div>
+
+                    {% if question.type == 'mcq' and question.options %}
+                        {% for option in question.options %}
+                            <input type="radio" id="q{{ q_index }}_{{ loop.index0 }}" name="answer_{{ q_index }}" value="{{ option }}">
+                            <label for="q{{ q_index }}_{{ loop.index0 }}">{{ option }}</label><br>
+                        {% endfor %}
+                    {% else %}
+                        <textarea name="answer_{{ q_index }}" rows="3" cols="50" placeholder="Type your answer here..."></textarea><br>
+                    {% endif %}
+
+                    <span class="result success">Congratulations!</span>
+                    <span class="result error">Incorrect answer</span>
+                </div>
             {% endfor %}
+
             <button type="submit">Submit Answers</button>
         </form>
     {% else %}

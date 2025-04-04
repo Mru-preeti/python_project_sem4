@@ -42,6 +42,11 @@
         <p id="fileName"></p>
     </div>
 
+    <div class="images-container">
+        <img src="{{ url_for('static', filename='pdf-image.png') }}" alt="PDF Processing">
+        <img src="{{ url_for('static', filename='question.jpg') }}" alt="AI Question Generator">
+    </div>    
+
     <script>
         document.getElementById("pdfForm").addEventListener("submit", function(event) {
             event.preventDefault();

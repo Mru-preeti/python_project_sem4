@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fill in the Blanks Quiz</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='fillup.css') }}">
+</head>
+<body>
+    <h2>Fill in the Blanks Quiz</h2>
+    
+    {% if questions %}
+        <form action="/submit_fill_in_the_blanks" method="post">
+            {% for question in questions %}
+                <div class="blank-question">
+                    <p><strong>{{ loop.index }}. Fill in the blank: 
+                        {{
+                            question.text | safe | replace(
+                                '_____', 
+                                '<input type="text" name="answer_' ~ loop.index ~ '" class="fill-blank-input" required>'
+                            )
+                        }}
+                    </strong></p>
+                </div>
+            {% endfor %}
+
+            <button type="submit">Submit Answers</button>
+        </form>
+    {% else %}
+        <p>No questions generated.</p>
+    {% endif %}
+
+    <br>
+    <a href="/">Go Back</a>
+
+    <script src="{{ url_for('static', filename='fillup.js') }}"></script>
+</body>
+</html>
+
