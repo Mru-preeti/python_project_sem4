@@ -3,11 +3,19 @@ import sqlite3
 import os
 import fitz  # PyMuPDF for extracting text from PDFs
 import re
+import fitz  # PyMuPDF for extracting text from PDFs
+import re
 import random
 import nltk
 from nltk.tokenize import word_tokenize
 from nltk import pos_tag
 from nltk.corpus import wordnet, stopwords
+
+nltk.download('averaged_perceptron_tagger')
+nltk.download('punkt')
+nltk.download('wordnet')
+nltk.download('stopwords')
+
 
 nltk.download('averaged_perceptron_tagger')
 nltk.download('punkt')
@@ -41,6 +49,7 @@ def login_validation():
             "SELECT * FROM USERS WHERE username=? AND password=?", (username, password)).fetchall()
     finally:
         conn.close()
+        conn.close()
 
     if len(user) > 0:
         return render_template('home.html')
@@ -58,6 +67,7 @@ def add_user():
     username = request.form.get('username')
     email_id = request.form.get('email_id')
     password = request.form.get('password')
+    password = request.form.get('password')
 
     conn = sqlite3.connect('Login_data.db')
     cursor = conn.cursor()
@@ -66,6 +76,7 @@ def add_user():
         "SELECT * FROM USERS WHERE username=?", (username,)).fetchall()
     if len(ans) > 0:
         conn.close()
+        return redirect('/')
         return redirect('/')
     else:
         cursor.execute("INSERT INTO USERS(username, email_id, password) VALUES (?, ?, ?)",
@@ -87,6 +98,7 @@ def upload_pdf():
 
     pdf = request.files["pdf"]
     quiz_type = request.form.get('quiz_type')
+    quiz_type = request.form.get('quiz_type')
 
     if pdf.filename == "":
         return "No file selected"
@@ -104,6 +116,7 @@ def extract_text_from_pdf(pdf_path):
     text = ""
     with fitz.open(pdf_path) as pdf_document:
         for page in pdf_document:
+            text += page.get_text()
             text += page.get_text()
     return text
 
@@ -140,10 +153,11 @@ def generate_questions(text, quiz_type):
 
             elif quiz_type == "mcq":
                 correct_answer = random.choice(filtered_words)
+                # Make sure generate_distractors exists!
                 wrong_options = generate_distractors(correct_answer)
 
                 if len(wrong_options) < 3:
-                    continue  # Skip this question if not enough distractors
+                    continue
 
                 options = wrong_options + [correct_answer]
                 random.shuffle(options)
@@ -164,8 +178,8 @@ def generate_questions(text, quiz_type):
                     'answer': None
                 })
 
-        if len(questions) >= 5:
-            break
+            if len(questions) >= 5:
+                break
 
     return questions
 
@@ -186,6 +200,8 @@ def submit_quiz():
     answers = []
     for key in request.form:
         answers.append(request.form[key])
+
+    return render_template('result.html', answers=answers)
 
     return render_template('result.html', answers=answers)
 
