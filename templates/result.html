@@ -2,17 +2,26 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiz Results</title>
+    <title>Quiz Result</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='quiz.css') }}">
 </head>
 <body>
-    <h2>Your Submitted Answers</h2>
+    <h2>Your Score: {{ score }} / {{ total }}</h2>
 
-    {% for answer in answers %}
-        <p>{{ loop.index }}. {{ answer }}</p>
-    {% endfor %}
+<hr>
 
-    <br>
+{% for result in results %}
+    <p><strong>Q{{ result.qnum }}</strong></p>
+    <p>Your Answer: {{ result.user_answer }}</p>
+    <p>Correct Answer: {{ result.correct_answer }}</p>
+    {% if result.is_correct %}
+        <p style="color: green;">✅ Correct</p>
+    {% else %}
+        <p style="color: red;">❌ Incorrect</p>
+    {% endif %}
+    <hr>
+{% endfor %}
+
     <a href="/">Back to Home</a>
 </body>
 </html>

@@ -3,24 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generated Quiz</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='quiz.css') }}">
+    <script src="{{ url_for('static', filename='quiz.js') }}" defer></script>
+    <title>Quiz</title>
 </head>
 <body>
-    <h2>Generated Quiz</h2>
-    
-    {% if questions %}
-        <form action="/submit_quiz" method="post">
-            {% for question in questions %}
-                <p><strong>{{ loop.index }}. {{ question }}</strong></p>
-                <textarea name="answer_{{ loop.index }}" rows="3" cols="50"></textarea><br>
-            {% endfor %}
-            <button type="submit">Submit Answers</button>
-        </form>
-    {% else %}
-        <p>No questions generated.</p>
-    {% endif %}
+    <h1>Quiz</h1>
+    <form action="/submit_quiz" method="POST">
+        {% for question in questions %}
+            {% set qnum = loop.index %}
 
-    <br>
-    <a href="/">Go Back</a>
+            {% if question.startswith("Fill in the blank:") %}
+                <p>{{ qnum }}. {{ question.replace("Fill in the blank: ", "") }}</p>
+                <input type="text" name="q{{ qnum }}" required><br><br>
+
+                    {% elif question.startswith("MCQ:") %}
+            <p>{{ qnum }}. {{ question.split("Options:")[0].replace("MCQ: ", "") }}</p>
+            {% set options = question.split("Options:\n")[-1].strip().splitlines() %}
+            {% for option in options %}
+                {% if option.strip() %}
+                    {% set actual_value = option.split(") ", 1)[-1].strip() %}
+                    <label>
+                        <input type="radio" name="q{{ qnum }}" value="{{ actual_value }}" required>
+                        {{ option }}
+                    </label><br>
+                {% endif %}
+            {% endfor %}
+
+                <br>
+
+            {% elif question.startswith("Subjective Question:") %}
+                <p>{{ qnum }}. {{ question.replace("Subjective Question: ", "") }}</p>
+                <textarea name="q{{ qnum }}" rows="4" cols="50" required></textarea><br><br>
+            {% endif %}
+        {% endfor %}
+        <button type="submit">Submit</button>
+    </form>
 </body>
 </html>
