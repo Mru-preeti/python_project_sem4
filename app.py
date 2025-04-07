@@ -9,6 +9,9 @@ from nltk.tokenize import word_tokenize
 from nltk import pos_tag
 from nltk.corpus import wordnet, stopwords
 from flask import session
+from transformers import pipeline
+from sentence_transformers import SentenceTransformer, util
+
 
 
 nltk.download('averaged_perceptron_tagger')
@@ -146,8 +149,14 @@ def generate_questions(text, quiz_type):
                 correct_answers.append(correct_answer.strip())  # ✅ Ensure it's clean
 
             elif quiz_type == "subjective":
-                questions.append(f"Subjective Question: {sentence}")
-                correct_answers.append(correct_answer)
+    # Use Hugging Face to generate a question
+                input_text = "generate question: " + sentence
+                output = qg_pipeline(input_text, max_length=64, clean_up_tokenization_spaces=True)
+                question_text = output[0]['generated_text']
+
+                questions.append(f"Subjective Question: {question_text}")
+                correct_answers.append(sentence)  # Original sentence is the expected answer
+
 
 
         if len(questions) >= 5:
@@ -164,6 +173,19 @@ def generate_distractors(word):
                 synonyms.add(lemma.name().replace("_", " "))  
 
     return list(synonyms)[:3]  # Return up to 3 wrong options
+def word_overlap_similarity(ans1, ans2):
+    words1 = set(word_tokenize(ans1.lower())) - set(stopwords.words('english'))
+    words2 = set(word_tokenize(ans2.lower())) - set(stopwords.words('english'))
+    if not words2:
+        return 0
+    overlap = words1.intersection(words2)
+    return len(overlap) / len(words2)
+
+# Hugging Face pipelines
+qg_pipeline = pipeline("text2text-generation", model="valhalla/t5-small-qg-hl")
+
+# For similarity checking
+similarity_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 @app.route('/submit_quiz', methods=['POST'])
 def submit_quiz():
@@ -176,8 +198,22 @@ def submit_quiz():
         user_answer = request.form.get(f'q{i+1}', '').strip().lower()
         correct_answer = correct_answers[i].strip().lower()
         user_answers.append(user_answer)
+        similarity_score = word_overlap_similarity(user_answer, correct_answer)
+        is_correct = similarity_score >= 0.5  # You can adjust this threshold
 
-        is_correct = user_answer == correct_answer
+       # if correct_answer.startswith("subjective:") or "subjective" in request.form.get(f'q{i+1}', '').lower():
+    # Use similarity check for subjective answers
+           # emb1 = similarity_model.encode(user_answer, convert_to_tensor=True)
+            #emb2 = similarity_model.encode(correct_answer, convert_to_tensor=True)
+            #similarity_score = util.pytorch_cos_sim(emb1, emb2).item()
+           # is_correct = similarity_score > 0.6  # You can tweak the threshold
+        #else:
+            #is_correct = user_answer == correct_answer
+       
+
+
+
+        #is_correct = user_answer == correct_answer
         if is_correct:
             score += 1
 
@@ -185,10 +221,19 @@ def submit_quiz():
             'qnum': i+1,
             'user_answer': user_answer,
             'correct_answer': correct_answer,
-            'is_correct': is_correct
+            'is_correct': is_correct,
+            'similarity_score': round(similarity_score * 100, 2),
+            'is_subjective': True  # ✅ Add this only for subjective questions
         })
+ 
+        
 
     return render_template('result.html', score=score, total=len(correct_answers), results=detailed_results)
+# Hugging Face pipelines
+qg_pipeline = pipeline("text2text-generation", model="valhalla/t5-small-qg-hl")
+
+# For similarity checking
+similarity_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 
 if __name__ == '__main__':
