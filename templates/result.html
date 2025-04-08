@@ -1,31 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8"/>
+  <head>
+    <meta charset="UTF-8" />
     <title>Quiz Result</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='quiz.css') }}">
-</head>
-<body>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='quiz.css') }}"
+    />
+  </head>
+  <body>
     <h2>Your Score: {{ score }} / {{ total }}</h2>
+    <hr />
 
-<hr>
+    {% for result in results %}
+      <p><strong>Q{{ result.qnum }}</strong></p>
+      <p>Your Answer: {{ result.user_answer }}</p>
+      <p>Correct Answer: {{ result.correct_answer }}</p>
 
-{% for result in results %}
-    <p><strong>Q{{ result.qnum }}</strong></p>
-    <p>Your Answer: {{ result.user_answer }}</p>
-    <p>Correct Answer: {{ result.correct_answer }}</p>
+      {% if result.is_correct %}
+        <p style="color: green">✅ Correct</p>
+      {% else %}
+        <p style="color: red">❌ Incorrect</p>
+      {% endif %}
 
-    {% if result.is_correct %}
-    <p style="color: green">✅ Correct</p>
-    {% else %}
-    <p style="color: red">❌ Incorrect</p>
-    {% endif %}
-    {% if result.is_subjective %}
-    <p>Similarity: {{ result.similarity_score }}%</p> <!-- ✅ Only shown for subjective -->
-{% endif %}
-    <hr>
-{% endfor %}
+      {% if result.is_subjective %}
+        <p>Similarity: {{ result.similarity_score }}%</p> <!-- ✅ Only shown for subjective -->
+      {% endif %}
+      <hr />
+    {% endfor %}
 
     <a href="/">Back to Home</a>
-</body>
+    <a href="/download_result/pdf" class="btn btn-secondary">Download PDF</a>
+  </body>
 </html>
