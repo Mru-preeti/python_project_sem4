@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect,send_file
+from flask import Flask, render_template, request, redirect, send_file
 import sqlite3
 import os
 import fitz  # PyMuPDF for extracting text from PDFs
@@ -19,6 +19,7 @@ from fpdf import FPDF
 from transformers import pipeline
 from sentence_transformers import SentenceTransformer, util
 
+
 def is_valid_sentence(line):
     words = line.strip().split()
     if len(words) < 5:
@@ -26,7 +27,6 @@ def is_valid_sentence(line):
     if line.strip().isupper():
         return False
     return True
-
 
 
 nltk.download('averaged_perceptron_tagger')
@@ -42,9 +42,11 @@ if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
+
 @app.route('/')
 def login():
     return render_template('login.html')
+
 
 @app.route('/login_validation', methods=['POST'])
 def login_validation():
@@ -55,7 +57,8 @@ def login_validation():
     cursor = conn.cursor()
 
     try:
-        user = cursor.execute("SELECT * FROM USERS WHERE username=? AND password=?", (username, password)).fetchone()
+        user = cursor.execute(
+            "SELECT * FROM USERS WHERE username=? AND password=?", (username, password)).fetchone()
     finally:
         conn.close()
 
@@ -65,9 +68,11 @@ def login_validation():
     else:
         return redirect('/')
 
+
 @app.route('/signup')
 def signup():
     return render_template('signup.html')
+
 
 @app.route('/add_user', methods=['POST'])
 def add_user():
@@ -78,19 +83,23 @@ def add_user():
     conn = sqlite3.connect('Login_data.db')
     cursor = conn.cursor()
 
-    ans = cursor.execute("SELECT * FROM USERS WHERE username=?", (username,)).fetchall()
+    ans = cursor.execute(
+        "SELECT * FROM USERS WHERE username=?", (username,)).fetchall()
     if len(ans) > 0:
         conn.close()
         return redirect('/')
     else:
-        cursor.execute("INSERT INTO USERS(username, email_id, password) VALUES (?, ?, ?)", (username, email_id, password))
+        cursor.execute("INSERT INTO USERS(username, email_id, password) VALUES (?, ?, ?)",
+                       (username, email_id, password))
         conn.commit()
         conn.close()
         return redirect('/')
 
+
 @app.route('/prompt1')
 def prompt1():
     return render_template('prompt1.html')
+
 
 @app.route('/upload_pdf', methods=['POST'])
 def upload_pdf():
@@ -113,6 +122,7 @@ def upload_pdf():
 
     return render_template('quiz.html', questions=questions)
 
+
 def extract_text_from_pdf(pdf_path):
     text = ""
     with fitz.open(pdf_path) as pdf_document:
@@ -120,13 +130,14 @@ def extract_text_from_pdf(pdf_path):
             text += page.get_text()
     return text
 
+
 def generate_questions(text, quiz_type):
     questions = []
     correct_answers = []
     sentences = re.split(r'(?<=[.?!])\s+', text.strip())
 
     for sentence in sentences:
-        
+
         words = word_tokenize(sentence)
         tagged_words = pos_tag(words)
         if not is_valid_sentence(sentence):
@@ -136,10 +147,12 @@ def generate_questions(text, quiz_type):
             continue  # ⛔ Skip long sentences
 
         # Keep only meaningful words (nouns, verbs, adjectives)
-        important_words = [word for word, tag in tagged_words if tag.startswith(('NN', 'VB', 'JJ'))]
-        
+        important_words = [
+            word for word, tag in tagged_words if tag.startswith(('NN', 'VB', 'JJ'))]
+
         # Remove stopwords
-        filtered_words = [word for word in important_words if word.lower() not in stopwords.words('english')]
+        filtered_words = [word for word in important_words if word.lower(
+        ) not in stopwords.words('english')]
 
         if len(filtered_words) > 0:
             if quiz_type == "fill_in_the_blank":
@@ -148,11 +161,10 @@ def generate_questions(text, quiz_type):
                 questions.append(f"Fill in the blank: {fill_in_blank}")
                 correct_answers.append(random_word)
 
-
             elif quiz_type == "mcq":
                 correct_answer = random.choice(filtered_words)
                 wrong_options = generate_distractors(correct_answer)
-                
+
                 if len(wrong_options) < 3:
                     continue  # Skip this question if we don't have enough distractors
 
@@ -168,24 +180,24 @@ def generate_questions(text, quiz_type):
                     f"D) {options[3]}"
                 )
                 questions.append(mcq)
-                correct_answers.append(correct_answer.strip())  # ✅ Ensure it's clean
+                # ✅ Ensure it's clean
+                correct_answers.append(correct_answer.strip())
 
             elif quiz_type == "subjective":
-    # Use Hugging Face to generate a question
+                # Use Hugging Face to generate a question
                 input_text = "generate question: " + sentence
-                output = qg_pipeline(input_text, max_length=64, clean_up_tokenization_spaces=True)
+                output = qg_pipeline(
+                    input_text, max_length=64, clean_up_tokenization_spaces=True)
                 question_text = output[0]['generated_text']
 
                 questions.append(f"Subjective Question: {question_text}")
-                correct_answers.append(sentence)  # Original sentence is the expected answer
-
-
+                # Original sentence is the expected answer
+                correct_answers.append(sentence)
 
         if len(questions) >= 5:
             break
 
     return questions, correct_answers
-
 
 
 def generate_distractors(word):
@@ -194,9 +206,11 @@ def generate_distractors(word):
     for syn in wordnet.synsets(word):
         for lemma in syn.lemmas():
             if lemma.name().lower() != word.lower():
-                synonyms.add(lemma.name().replace("_", " "))  
+                synonyms.add(lemma.name().replace("_", " "))
 
     return list(synonyms)[:3]  # Return up to 3 wrong options
+
+
 def word_overlap_similarity(ans1, ans2):
     words1 = set(word_tokenize(ans1.lower())) - set(stopwords.words('english'))
     words2 = set(word_tokenize(ans2.lower())) - set(stopwords.words('english'))
@@ -205,16 +219,18 @@ def word_overlap_similarity(ans1, ans2):
     overlap = words1.intersection(words2)
     return len(overlap) / len(words2)
 
+
 # Hugging Face pipelines
 qg_pipeline = pipeline("text2text-generation", model="valhalla/t5-small-qg-hl")
 
 # For similarity checking
 similarity_model = SentenceTransformer('all-MiniLM-L6-v2')
 
+
 @app.route('/submit_quiz', methods=['POST'])
 def submit_quiz():
     import json  # make sure you have this at the top of your file
-    questions = session.get('questions',[])
+    questions = session.get('questions', [])
     correct_answers = session.get('correct_answers', [])
     user_answers = []
     detailed_results = []
@@ -229,17 +245,14 @@ def submit_quiz():
 
        # if correct_answer.startswith("subjective:") or "subjective" in request.form.get(f'q{i+1}', '').lower():
     # Use similarity check for subjective answers
-           # emb1 = similarity_model.encode(user_answer, convert_to_tensor=True)
-            #emb2 = similarity_model.encode(correct_answer, convert_to_tensor=True)
-            #similarity_score = util.pytorch_cos_sim(emb1, emb2).item()
-           # is_correct = similarity_score > 0.6  # You can tweak the threshold
-        #else:
-            #is_correct = user_answer == correct_answer
-       
+        # emb1 = similarity_model.encode(user_answer, convert_to_tensor=True)
+        # emb2 = similarity_model.encode(correct_answer, convert_to_tensor=True)
+        # similarity_score = util.pytorch_cos_sim(emb1, emb2).item()
+        # is_correct = similarity_score > 0.6  # You can tweak the threshold
+        # else:
+        # is_correct = user_answer == correct_answer
 
-
-
-        #is_correct = user_answer == correct_answer
+        # is_correct = user_answer == correct_answer
         if is_correct:
             score += 1
 
@@ -251,8 +264,6 @@ def submit_quiz():
             'similarity_score': round(similarity_score * 100, 2),
             'is_subjective': True  # ✅ Add this only for subjective questions
         })
- 
-        
 
     # Store results in the database
     username = session.get('username')  # make sure the user is logged in
@@ -276,6 +287,8 @@ def submit_quiz():
     conn.close()
 
     return render_template('result.html', score=score, total=len(correct_answers), results=detailed_results)
+
+
 # Hugging Face pipelines
 qg_pipeline = pipeline("text2text-generation", model="valhalla/t5-small-qg-hl")
 
@@ -283,14 +296,15 @@ qg_pipeline = pipeline("text2text-generation", model="valhalla/t5-small-qg-hl")
 similarity_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 
-
 def remove_unicode(text):
     # Remove any character not supported by latin-1
     return re.sub(r'[^\x00-\xFF]', '', text)
 
+
 def generate_explanation(question, correct_answer):
     # Dummy explanation
     return f"The answer '{correct_answer}' is correct because it fits the context of the question."
+
 
 @app.route('/download_result/pdf')
 def download_result_pdf():
@@ -305,7 +319,7 @@ def download_result_pdf():
     results = cursor.execute("""
         SELECT quiz_type, questions, user_answers, Correctanswer, score, timestamp 
         FROM results WHERE username=? and id=?
-    """, (username,quiz_id)).fetchall()
+    """, (username, quiz_id)).fetchall()
     conn.close()
 
     # Create PDF
@@ -351,13 +365,12 @@ def download_result_pdf():
 
     # Output to BytesIO using dest='S'
     pdf_bytes = BytesIO()
-    pdf_output_str = pdf.output(dest='S').encode('latin1')  # Important: encode to latin1
+    pdf_output_str = pdf.output(dest='S').encode(
+        'latin1')  # Important: encode to latin1
     pdf_bytes.write(pdf_output_str)
     pdf_bytes.seek(0)
 
     return send_file(pdf_bytes, download_name='quiz_results_clean.pdf', as_attachment=True)
-
-
 
 
 if __name__ == '__main__':
