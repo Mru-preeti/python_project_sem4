@@ -1,18 +1,35 @@
 import sqlite3
-conn=sqlite3.connect('Login_data.db')
-cursor=conn.cursor()
 
-cmd1="""CREATE TABLE IF NOT EXISTS USERS(username varchar(50) not null,
-                                        email_id varchar(50) PRIMARY KEY,
-                                        password varchar(50) not null)"""
+with sqlite3.connect('Login_data.db') as conn:
+    cursor = conn.cursor()
 
-cursor.execute(cmd1)
+    # Create USERS table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS USERS (
+            username TEXT NOT NULL,
+            email_id TEXT PRIMARY KEY,
+            password TEXT NOT NULL
+        )
+    """)
 
-cmd2="""INSERT INTO USERS(username,email_id,password)values('tester','tester@gmail.com','test')"""
+    # Insert a user (ignore if exists)
+    cursor.execute("""
+        INSERT OR IGNORE INTO USERS (username, email_id, password)
+        VALUES ('tester', 'tester@gmail.com', 'test')
+    """)
 
-cursor.execute(cmd2)
-conn.commit()
+    # Create results table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT,
+            quiz_type TEXT,
+            questions TEXT,
+            user_answers TEXT,
+            score INTEGER,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            Correctanswer TEXT
+        )
+    """)
 
-ans=cursor.execute("select * from USERS" ).fetchall()
-for i in ans :
-    print(i)
+  
