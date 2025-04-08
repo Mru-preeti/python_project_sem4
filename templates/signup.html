@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign In Page</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <script src="{{ url_for('static', filename='abcscript.js') }}"></script>
+    <script src="{{ url_for('static', filename='abcscript.js') }}" defer></script>
 </head>
 <body>
     <main>
@@ -13,12 +13,12 @@
             <div class="form-box">
                 <h2>Sign In</h2>
                 <p class="subtext">Welcome!</p>
-                <form method="post" action="/add_user" id="signupForm" onsubmit="return validatePassword()">
+                <form method="post" action="/add_user" id="signupForm">
                     <input type="text" name="username" id="username" placeholder="Username" required>
                     <input type="email" name="email_id" id="email" placeholder="Email" required>
                     <input type="password" name="password" id="password" placeholder="Password" required>
                     <input type="password" name="confirmPassword" id="confirmPassword" placeholder="Verify Password" required>
-                    <p id="error-message" class="error"></p>
+                    <p id="error-message" class="error" style="color:red;"></p>
                     <button type="submit" class="login-btn">Sign In</button>
                 </form>
                 <a href="/" class="signup-btn">Already have an account? Log In</a>

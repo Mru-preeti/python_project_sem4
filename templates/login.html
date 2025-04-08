@@ -81,15 +81,15 @@
     <main>
         <div class="login-container">
             <h2>User Login</h2>
-             <form method="post" action="/login_validation">
+            <form method="post" action="/login_validation">
                 <input type="text" name="username" placeholder="Enter Username" required>
                 <input type="password" name="password" placeholder="Enter Password" required>
-                <a href="forgot-password.html" class="forgot-password">Forgot Password?</a>
+                <a href="{{ url_for('forgot_password') }}" class="forgot-password">Forgot Password?</a>
                 <button type="submit">Login</button>
-                
-        </form>
-        <a href="/signup" class="signup-link">Don't have an account? Sign up</a>
-    </div>
+            </form>
+            <a href="/signup" class="signup-link">Don't have an account? Sign up</a>
+        </div>
     </main>
+    
 </body>
 </html>

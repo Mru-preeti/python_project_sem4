@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, send_file
+from flask import Flask, render_template, request, session, flash, redirect, send_file, url_for
 import sqlite3
 import os
 import fitz  # PyMuPDF for extracting text from PDFs
@@ -11,13 +11,18 @@ from nltk.tokenize import word_tokenize
 from nltk import pos_tag
 from nltk.corpus import wordnet, stopwords
 from flask import session
-
+import smtplib
+from flask_mail import Mail, Message
 from fpdf import FPDF
 from flask import send_file
 from io import BytesIO
 from fpdf import FPDF
 from transformers import pipeline
 from sentence_transformers import SentenceTransformer, util
+
+import sqlite3
+
+conn = sqlite3.connect('Login_data.db', check_same_thread=False)
 
 
 def is_valid_sentence(line):
@@ -37,6 +42,16 @@ nltk.download('stopwords')
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'srushtiprajakt.t@gmail.com'
+# Not your normal email password
+app.config['MAIL_PASSWORD'] = 'mqlzvpwdlqdqsbim'
+
+mail = Mail(app)
+
+
 UPLOAD_FOLDER = "uploads"
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
@@ -50,23 +65,27 @@ def login():
 
 @app.route('/login_validation', methods=['POST'])
 def login_validation():
-    username = request.form.get('username')
+    # This can be either username or email
+    identifier = request.form.get('username')
     password = request.form.get('password')
 
     conn = sqlite3.connect('Login_data.db')
     cursor = conn.cursor()
 
-    try:
-        user = cursor.execute(
-            "SELECT * FROM USERS WHERE username=? AND password=?", (username, password)).fetchone()
-    finally:
-        conn.close()
+    cursor.execute(
+        "SELECT * FROM USERS WHERE (username = ? OR email_id= ?) AND password = ?",
+        (identifier, identifier, password)
+    )
+    user = cursor.fetchone()
+
+    conn.close()
 
     if user:
-        session['username'] = username  # ✅ Store username in session
-        return render_template('home.html', username=username)
+        flash("Login successful!", "success")
+        return redirect(url_for('dashboard'))
     else:
-        return redirect('/')
+        flash("Invalid username or email", "error")
+        return redirect(url_for('login'))
 
 
 @app.route('/signup')
@@ -121,6 +140,9 @@ def upload_pdf():
     session['correct_answers'] = correct_answers
 
     return render_template('quiz.html', questions=questions)
+
+
+otp_store = {}
 
 
 def extract_text_from_pdf(pdf_path):
@@ -371,6 +393,109 @@ def download_result_pdf():
     pdf_bytes.seek(0)
 
     return send_file(pdf_bytes, download_name='quiz_results_clean.pdf', as_attachment=True)
+
+
+def send_otp_email(recipient, otp):
+    sender_email = 'srushtiprajakt.t@gmail.com'  # replace with your email
+    sender_password = 'mqlzvpwdlqdqsbim'      # use app password if needed
+
+    subject = 'Your OTP for Password Reset'
+    body = f'Hello. This mail is from EduExtract. Your OTP is: {otp}'
+    message = f'Subject: {subject}\n\n{body}'
+
+    try:
+        with smtplib.SMTP('smtp.gmail.com', 587) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, recipient, message)
+        return True
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+        return False
+
+
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        username_input = request.form['username'].strip()
+        email_input = request.form['email_id'].strip()
+
+        conn = sqlite3.connect('Login_data.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM USERS WHERE username=? AND email_id=?",
+                       (username_input, email_input))
+        user = cursor.fetchone()
+        conn.close()
+
+        if user:
+            otp = str(random.randint(100000, 999999))
+            session['reset_email'] = email_input
+            session['reset_username'] = username_input
+            session['otp'] = otp
+
+            try:
+                msg = Message('Password Reset OTP',
+                              sender='srushtiprajakt.t@gamil.com', recipients=[email_input])
+                msg.body = f'Hello. This mail is from EduExtract. Your OTP for password reset is: {otp}'
+                mail.send(msg)
+                flash('OTP has been sent to your email.')
+                return redirect(url_for('verify_otp'))
+            except Exception as e:
+                flash('Failed to send OTP. Try again later.')
+                print(e)
+        else:
+            flash('Invalid username or email.')
+
+    return render_template('forgot_password.html')
+
+
+@app.route('/verify_otp', methods=['GET', 'POST'])
+def verify_otp():
+    if request.method == 'POST':
+        email_input = request.form['email_id']
+        user_otp = request.form['otp']
+
+        if (session.get('otp') == user_otp and session.get('reset_email') == email_input):
+            flash('OTP verified. Please reset your password.')
+            return render_template('reset_password.html', email=email_input)
+        else:
+            flash('Invalid OTP. Try again.')
+            return render_template('verify_otp.html', email=email_input)
+
+    # GET request
+    return render_template('verify_otp.html', email=session.get('reset_email'))
+
+
+def is_valid_password(password):
+    if len(password) < 8:
+        return False
+    if not re.search(r'[A-Z]', password):
+        return False
+    if not re.search(r'\d', password):
+        return False
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+        return False
+    return True
+
+
+@app.route('/reset_password', methods=['POST'])
+def reset_password():
+    email = request.form.get('email_id')
+    new_password = request.form['new_password']
+
+    if not is_valid_password(new_password):
+        flash("Password doesn't meet criteria.")
+        return render_template('reset_password.html', email_id=email)
+
+    conn = sqlite3.connect('your_database.db')
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE USERS SET password = ? WHERE email_id = ?", (new_password, email))
+    conn.commit()
+    conn.close()
+
+    flash('Password reset successfully. You can log in now.')
+    return redirect(url_for('index'))
 
 
 if __name__ == '__main__':
