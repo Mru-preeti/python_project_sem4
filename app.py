@@ -19,6 +19,13 @@ from fpdf import FPDF
 from transformers import pipeline
 from sentence_transformers import SentenceTransformer, util
 
+def is_valid_sentence(line):
+    words = line.strip().split()
+    if len(words) < 5:
+        return False
+    if line.strip().isupper():
+        return False
+    return True
 
 
 
@@ -119,8 +126,14 @@ def generate_questions(text, quiz_type):
     sentences = re.split(r'(?<=[.?!])\s+', text.strip())
 
     for sentence in sentences:
+        
         words = word_tokenize(sentence)
         tagged_words = pos_tag(words)
+        if not is_valid_sentence(sentence):
+            continue
+        # Skip sentences with too many words
+        if len(sentence.split()) > 20:
+            continue  # ⛔ Skip long sentences
 
         # Keep only meaningful words (nouns, verbs, adjectives)
         important_words = [word for word, tag in tagged_words if tag.startswith(('NN', 'VB', 'JJ'))]
