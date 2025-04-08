@@ -1,14 +1,22 @@
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect,send_file
 import sqlite3
 import os
 import fitz  # PyMuPDF for extracting text from PDFs
 import re
 import random
 import nltk
+import io
+import json
 from nltk.tokenize import word_tokenize
 from nltk import pos_tag
 from nltk.corpus import wordnet, stopwords
 from flask import session
+from fpdf import FPDF
+from flask import send_file
+from io import BytesIO
+from fpdf import FPDF
+from flask import send_file, session, redirect
+
 
 
 nltk.download('averaged_perceptron_tagger')
@@ -37,12 +45,13 @@ def login_validation():
     cursor = conn.cursor()
 
     try:
-        user = cursor.execute("SELECT * FROM USERS WHERE username=? AND password=?", (username, password)).fetchall()
+        user = cursor.execute("SELECT * FROM USERS WHERE username=? AND password=?", (username, password)).fetchone()
     finally:
         conn.close()
 
-    if len(user) > 0:
-        return render_template('home.html')
+    if user:
+        session['username'] = username  # ✅ Store username in session
+        return render_template('home.html', username=username)
     else:
         return redirect('/')
 
@@ -89,7 +98,7 @@ def upload_pdf():
 
     extracted_text = extract_text_from_pdf(file_path)
     questions, correct_answers = generate_questions(extracted_text, quiz_type)
-
+    session['questions'] = questions
     session['correct_answers'] = correct_answers
 
     return render_template('quiz.html', questions=questions)
@@ -155,6 +164,8 @@ def generate_questions(text, quiz_type):
 
     return questions, correct_answers
 
+
+
 def generate_distractors(word):
     """Generate wrong answer options using synonyms."""
     synonyms = set()
@@ -167,6 +178,8 @@ def generate_distractors(word):
 
 @app.route('/submit_quiz', methods=['POST'])
 def submit_quiz():
+    import json  # make sure you have this at the top of your file
+    questions = session.get('questions',[])
     correct_answers = session.get('correct_answers', [])
     user_answers = []
     detailed_results = []
@@ -182,13 +195,111 @@ def submit_quiz():
             score += 1
 
         detailed_results.append({
-            'qnum': i+1,
+            'qnum': i + 1,
             'user_answer': user_answer,
             'correct_answer': correct_answer,
             'is_correct': is_correct
         })
 
+    # Store results in the database
+    username = session.get('username')  # make sure the user is logged in
+    quiz_type = 'mcq'  # optionally change this dynamically
+    questions = json.dumps(session.get('questions', []))
+    useranswers = json.dumps(user_answers)
+    correctanswers = json.dumps(correct_answers)
+    score_value = score
+
+    conn = sqlite3.connect('Login_data.db')
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        INSERT INTO results (username, quiz_type, questions, user_answers, Correctanswer, score)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (username, quiz_type, questions, useranswers, correctanswers, score_value))
+
+    conn.commit()
+    quiz_id = cursor.lastrowid  # Get the ID of the newly inserted quiz
+    session['last_quiz_id'] = quiz_id  # ✅ Store it in session
+    conn.close()
+
     return render_template('result.html', score=score, total=len(correct_answers), results=detailed_results)
+
+
+
+def remove_unicode(text):
+    # Remove any character not supported by latin-1
+    return re.sub(r'[^\x00-\xFF]', '', text)
+
+def generate_explanation(question, correct_answer):
+    # Dummy explanation
+    return f"The answer '{correct_answer}' is correct because it fits the context of the question."
+
+@app.route('/download_result/pdf')
+def download_result_pdf():
+    if 'username' not in session or 'last_quiz_id' not in session:
+        return redirect('/login')
+    quiz_id = session['last_quiz_id']
+    username = session['username']
+
+    # Fetch from DB
+    conn = sqlite3.connect('Login_data.db')
+    cursor = conn.cursor()
+    results = cursor.execute("""
+        SELECT quiz_type, questions, user_answers, Correctanswer, score, timestamp 
+        FROM results WHERE username=? and id=?
+    """, (username,quiz_id)).fetchall()
+    conn.close()
+
+    # Create PDF
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font('Arial', 'B', 14)
+    pdf.cell(0, 10, f'Quiz Results for {username}', ln=True, align='C')
+    pdf.ln(10)
+
+    for idx, (quiz_type, questions, user_answers, correct_answers, score, timestamp) in enumerate(results, start=1):
+        pdf.set_font('Arial', 'B', 12)
+        pdf.set_fill_color(230, 230, 230)
+        pdf.cell(0, 8, f'Result #{idx} - {timestamp}', ln=True, fill=True)
+        pdf.ln(3)
+
+        try:
+            q_list = json.loads(questions)
+            a_list = json.loads(user_answers)
+            c_list = json.loads(correct_answers)
+        except:
+            q_list = [questions]
+            a_list = [user_answers]
+            c_list = [correct_answers]
+
+        pdf.set_font('Arial', '', 11)
+        for i in range(len(q_list)):
+            q = remove_unicode(q_list[i])
+            a = remove_unicode(a_list[i])
+            c = remove_unicode(c_list[i])
+            expl = remove_unicode(generate_explanation(q, c))
+
+            pdf.multi_cell(0, 8, f"Q{i+1}: {q}")
+            pdf.multi_cell(0, 8, f"Your Answer: {a}")
+            pdf.multi_cell(0, 8, f"Correct Answer: {c}")
+            pdf.set_text_color(100, 100, 100)
+            pdf.multi_cell(0, 8, f"Explanation: {expl}")
+            pdf.set_text_color(0, 0, 0)
+            pdf.ln(3)
+
+        pdf.set_font('Arial', 'B', 11)
+        pdf.cell(0, 10, f"Total Score: {score}/{len(q_list)}", ln=True)
+        pdf.ln(5)
+
+    # Output to BytesIO using dest='S'
+    pdf_bytes = BytesIO()
+    pdf_output_str = pdf.output(dest='S').encode('latin1')  # Important: encode to latin1
+    pdf_bytes.write(pdf_output_str)
+    pdf_bytes.seek(0)
+
+    return send_file(pdf_bytes, download_name='quiz_results_clean.pdf', as_attachment=True)
+
+
 
 
 if __name__ == '__main__':
