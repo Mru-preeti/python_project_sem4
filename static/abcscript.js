@@ -33,12 +33,10 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // ✅ If all is good
+        // ✅ All validations passed — allow form to submit to the server
         errorMessage.textContent = ""; // Clear previous errors
-        alert("Sign in Successful!");
-        // If you want to prevent real form submission and go to main.html:
-        e.preventDefault();
-        window.location.href = "Main.html";
+        // ❌ DO NOT prevent form submission or redirect manually
+        // The form will now submit to /add_user as expected
     });
 });
 

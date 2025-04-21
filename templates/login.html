@@ -81,15 +81,21 @@
     <main>
         <div class="login-container">
             <h2>User Login</h2>
-            <form method="post" action="/login_validation">
+            <form action="/login_validation" method="POST">
                 <input type="text" name="username" placeholder="Enter Username" required>
                 <input type="password" name="password" placeholder="Enter Password" required>
                 <a href="{{ url_for('forgot_password') }}" class="forgot-password">Forgot Password?</a>
                 <button type="submit">Login</button>
+                <a href="/signup" class="signup-link">Don't have an account? Sign up</a>
+                <div id="login-error-message" style="color: red; text-align: center;"></div>
             </form>
-            <a href="/signup" class="signup-link">Don't have an account? Sign up</a>
         </div>
     </main>
-    
+    <script>
+        const errorFromFlask = "{{ error }}";
+        if (errorFromFlask) {
+            document.getElementById("login-error-message").textContent = errorFromFlask;
+        }
+    </script>    
 </body>
 </html>

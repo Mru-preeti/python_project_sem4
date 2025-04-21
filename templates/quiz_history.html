@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Quiz History</title>
+    <style>
+        table {
+            width: 80%;
+            margin: auto;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px 20px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        h2 {
+            text-align: center;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Your Quiz History</h2>
+    <table>
+        <tr>
+            <th>Quiz Type</th>
+            <th>Score</th>
+            <th>Timestamp</th>
+        </tr>
+        {% for quiz in history %}
+        <tr>
+            <td>{{ quiz[0] }}</td>
+            <td>{{ quiz[1] }}</td>
+            <td>{{ quiz[2] }}</td>
+        </tr>
+        {% endfor %}
+        <form action="{{ url_for('home') }}" method="GET" style="margin-top: 10px;">
+            <button type="submit">Home</button>
+        </form>
+        
+    </table>
+</body>
+</html>

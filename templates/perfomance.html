@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Performance Graph</title>
+</head>
+<body>
+    <h2>Quiz Performance</h2>
+    <div>
+        <h3>Scores Over Time</h3>
+        <img src="{{ bar_chart }}" alt="Bar Chart">
+        <form action="{{ url_for('home') }}" method="GET" style="margin-top: 10px;">
+            <button type="submit">Home</button>
+        </form>
+    </div>
+    
+</body>
+</html>

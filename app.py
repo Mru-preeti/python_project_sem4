@@ -19,8 +19,9 @@ from io import BytesIO
 from fpdf import FPDF
 from transformers import pipeline
 from sentence_transformers import SentenceTransformer, util
+import matplotlib.pyplot as plt
+import base64
 
-import sqlite3
 
 conn = sqlite3.connect('Login_data.db', check_same_thread=False)
 
@@ -46,7 +47,6 @@ app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = 'srushtiprajakt.t@gmail.com'
-# Not your normal email password
 app.config['MAIL_PASSWORD'] = 'mqlzvpwdlqdqsbim'
 
 mail = Mail(app)
@@ -65,27 +65,28 @@ def login():
 
 @app.route('/login_validation', methods=['POST'])
 def login_validation():
-    # This can be either username or email
-    identifier = request.form.get('username')
+    username = request.form.get('username')
     password = request.form.get('password')
 
     conn = sqlite3.connect('Login_data.db')
     cursor = conn.cursor()
 
-    cursor.execute(
-        "SELECT * FROM USERS WHERE (username = ? OR email_id= ?) AND password = ?",
-        (identifier, identifier, password)
-    )
-    user = cursor.fetchone()
+    try:
+        # Fetch the user with both username and password
+        user = cursor.execute(
+            "SELECT username, password FROM USERS WHERE username=? AND password=?", (username, password)).fetchone()
+    finally:
+        conn.close()
 
-    conn.close()
+    if user is None:
+        # No user found with the given username or incorrect password
+        return render_template("login.html", error="Incorrect username or password.")
 
-    if user:
-        flash("Login successful!", "success")
-        return redirect(url_for('dashboard'))
-    else:
-        flash("Invalid username or email", "error")
-        return redirect(url_for('login'))
+    stored_username, stored_password = user
+
+    # Successful login — store username in session and redirect
+    session['username'] = stored_username
+    return render_template('home.html', username=stored_username)
 
 
 @app.route('/signup')
@@ -99,20 +100,34 @@ def add_user():
     email_id = request.form.get('email_id')
     password = request.form.get('password')
 
+    if not username or not email_id or not password:
+        # Handle missing fields gracefully
+        return "Please fill out all fields", 400
+
     conn = sqlite3.connect('Login_data.db')
     cursor = conn.cursor()
 
-    ans = cursor.execute(
-        "SELECT * FROM USERS WHERE username=?", (username,)).fetchall()
-    if len(ans) > 0:
-        conn.close()
-        return redirect('/')
-    else:
-        cursor.execute("INSERT INTO USERS(username, email_id, password) VALUES (?, ?, ?)",
+    try:
+        # Check if username already exists
+        cursor.execute("SELECT * FROM USERS WHERE username=?", (username,))
+        existing_user = cursor.fetchone()
+
+        if existing_user:
+            # Already exists, redirect back to signup
+            return redirect('/signup')
+
+        # Insert the new user
+        cursor.execute("INSERT INTO USERS (username, email_id, password) VALUES (?, ?, ?)",
                        (username, email_id, password))
         conn.commit()
-        conn.close()
         return redirect('/')
+
+    except sqlite3.Error as e:
+        print("Database error:", e)
+        return "Internal server error", 500
+
+    finally:
+        conn.close()
 
 
 @app.route('/prompt1')
@@ -140,6 +155,11 @@ def upload_pdf():
     session['correct_answers'] = correct_answers
 
     return render_template('quiz.html', questions=questions)
+
+
+@app.route('/home')
+def home():
+    return render_template('home.html')
 
 
 otp_store = {}
@@ -432,17 +452,21 @@ def forgot_password():
             session['reset_email'] = email_input
             session['reset_username'] = username_input
             session['otp'] = otp
+            print("Generated OTP:", otp)
+            print("Sending OTP to:", email_input)
 
             try:
                 msg = Message('Password Reset OTP',
-                              sender='srushtiprajakt.t@gamil.com', recipients=[email_input])
+                              sender='srushtiprajakt.t@gmail.com', recipients=[email_input])
                 msg.body = f'Hello. This mail is from EduExtract. Your OTP for password reset is: {otp}'
                 mail.send(msg)
                 flash('OTP has been sent to your email.')
                 return redirect(url_for('verify_otp'))
             except Exception as e:
                 flash('Failed to send OTP. Try again later.')
-                print(e)
+                import traceback
+                traceback.print_exc()
+
         else:
             flash('Invalid username or email.')
 
@@ -466,6 +490,30 @@ def verify_otp():
     return render_template('verify_otp.html', email=session.get('reset_email'))
 
 
+@app.route('/reset_password', methods=['POST'])
+def reset_password():
+    email = session.get('reset_email')  # safer than using hidden form field
+    new_password = request.form['new_password']
+
+    if not is_valid_password(new_password):
+        flash("Password doesn't meet criteria.")
+        return render_template('reset_password.html', email_id=email)
+
+    if email:
+        conn = sqlite3.connect('Login_data.db')
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE USERS SET password = ? WHERE email_id = ?", (new_password, email))
+        conn.commit()
+        conn.close()
+
+        flash('Password reset successfully. You can log in now.')
+        return redirect(url_for('login'))
+    else:
+        flash('Email session expired. Please try again.')
+        return redirect(url_for('forgot_password'))
+
+
 def is_valid_password(password):
     if len(password) < 8:
         return False
@@ -478,24 +526,67 @@ def is_valid_password(password):
     return True
 
 
-@app.route('/reset_password', methods=['POST'])
-def reset_password():
-    email = request.form.get('email_id')
-    new_password = request.form['new_password']
+@app.route('/perfomance')
+def performance():
+    username = session.get('username')
+    if not username:
+        return redirect('/login')
 
-    if not is_valid_password(new_password):
-        flash("Password doesn't meet criteria.")
-        return render_template('reset_password.html', email_id=email)
-
-    conn = sqlite3.connect('your_database.db')
+    conn = sqlite3.connect('Login_data.db')
     cursor = conn.cursor()
-    cursor.execute(
-        "UPDATE USERS SET password = ? WHERE email_id = ?", (new_password, email))
-    conn.commit()
+    cursor.execute("SELECT score FROM results WHERE username=?", (username,))
+    scores = cursor.fetchall()
     conn.close()
 
-    flash('Password reset successfully. You can log in now.')
-    return redirect(url_for('index'))
+    user_results = [row[0] for row in scores]
+
+    if not user_results:
+        user_results = [0]
+
+    bar_chart = generate_bar_chart(user_results)
+
+    return render_template('perfomance.html', bar_chart=bar_chart)
+
+
+@app.route('/quiz_history')
+def quiz_history():
+    username = session.get('username')
+    if not username:
+        return redirect('/login')
+
+    conn = sqlite3.connect('Login_data.db')
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT quiz_type, score, timestamp 
+        FROM results 
+        WHERE username=? 
+        ORDER BY timestamp DESC
+    """, (username,))
+    history = cursor.fetchall()
+    conn.close()
+
+    return render_template('quiz_history.html', history=history)
+
+
+def generate_bar_chart(user_results):
+    quizzes = [f"Quiz {i+1}" for i in range(len(user_results))]
+    scores = user_results
+
+    plt.figure(figsize=(12, 6))  # Increase figure size for clarity
+    bars = plt.bar(quizzes, scores, color='skyblue')
+    plt.title("Quiz Performance Over Time", fontsize=16)
+    plt.xlabel("Quiz", fontsize=12)
+    plt.ylabel("Score", fontsize=12)
+    plt.xticks(rotation=45, ha='right')  # Rotate x-labels for visibility
+    plt.yticks(fontsize=10)
+    plt.tight_layout(pad=2)
+
+    img = io.BytesIO()
+    plt.savefig(img, format='png')
+    img.seek(0)
+    graph_url = base64.b64encode(img.getvalue()).decode()
+    plt.close()
+    return f"data:image/png;base64,{graph_url}"
 
 
 if __name__ == '__main__':
